@@ -1,0 +1,5 @@
+GET {{client.host.url}}/api/v1/generatedata
+    ?columns=5&records=500
+Accept: application/json
+
+###
