@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using Carr.DataGenerator.Extensions;
 using Carr.DataGenerator.Models;
 using CsvHelper;
@@ -15,15 +16,40 @@ public class DataGenerator : IDataGenerator
     public async Task<IResult> GenerateDataAsync(int columns, int rows)
     {
         var columnInfoList = await GenerateColumnInfo(columns);
-        var data = await GenerateDynamicData(columnInfoList, rows);
 
-        using var memoryStream = new MemoryStream();
-        await using var writer = new StreamWriter(memoryStream);
-        await using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+        var timer = Stopwatch.StartNew();
 
-        await csv.WriteRecordsAsync(data);
+        var processors = Environment.ProcessorCount;
+        var countPerProcessor = rows / processors + 1;
+        var dataTasks = new List<Task<List<dynamic>>>();
+        var remainingRows = rows;
 
-        return Results.File(memoryStream.ToArray(), contentType: "text/csv");
+        for (var i = 0; i < processors; i++)
+        {
+            if (remainingRows < countPerProcessor)
+            {
+                dataTasks.Add(GenerateDynamicData(columnInfoList, remainingRows));
+            }
+            else
+            {
+                dataTasks.Add(GenerateDynamicData(columnInfoList, countPerProcessor));
+            }
+
+            remainingRows -= countPerProcessor;
+        }
+
+        await Task.WhenAll(dataTasks);
+
+        var data = new List<dynamic>();
+        foreach (var dataTask in dataTasks)
+        {
+            data.AddRange(dataTask.Result);
+        }
+
+        timer.Stop();
+        Console.WriteLine($"Threaded : Generated {rows} data in {timer.ElapsedMilliseconds} ms.");
+
+        return await GenerateCsvFile(data);
     }
 
     private Task<List<ColumnInfo>> GenerateColumnInfo(int columns)
@@ -44,7 +70,6 @@ public class DataGenerator : IDataGenerator
                     columnData.Add(new ColumnInfo("Column" + (i + 1), dataType, random.Next(0, 1) == 0,
                         random.Next(-1, 500)));
                     break;
-
                 case DataTypes.Boolean:
                 case DataTypes.Integer:
                 case DataTypes.Decimal:
@@ -52,7 +77,6 @@ public class DataGenerator : IDataGenerator
                 case DataTypes.Guid:
                     columnData.Add(new ColumnInfo("Column" + (i + 1), dataType, random.Next(0, 1) == 0, null));
                     break;
-
                 default:
                     columnData.Add(new ColumnInfo("Column" + (i + 1), dataType, random.Next(0, 1) == 0,
                         random.Next(-1, 1_000)));
@@ -65,40 +89,56 @@ public class DataGenerator : IDataGenerator
 
     private Task<List<dynamic>> GenerateDynamicData(List<ColumnInfo> columns, int rows)
     {
-        var dynamicData = new List<dynamic>();
-        var random = new Random();
-
-        for (var i = 0; i < rows; i++)
+        return Task.Run(() =>
         {
-            var properties = new Dictionary<string, dynamic>();
-            foreach (var columnInfo in columns)
+            var dynamicData = new List<dynamic>();
+            var random = new Random();
+
+            for (var i = 0; i < rows; i++)
             {
-                switch (columnInfo.DataType)
+                var properties = new Dictionary<string, dynamic>();
+                foreach (var columnInfo in columns)
                 {
-                    case DataTypes.Integer:
-                        properties.Add(columnInfo.Name, random.NextInt(int.MinValue, int.MaxValue));
-                        break;
-                    case DataTypes.String:
-                        properties.Add(columnInfo.Name, random.NextString(columnInfo.Size ?? 500));
-                        break;
-                    case DataTypes.Decimal:
-                        properties.Add(columnInfo.Name, 123.45);
-                        break;
-                    case DataTypes.Boolean:
-                        properties.Add(columnInfo.Name, random.NextBool());
-                        break;
-                    case DataTypes.DateTime:
-                        properties.Add(columnInfo.Name, new DateTime(1970, 1, 1));
-                        break;
-                    case DataTypes.Guid:
-                        properties.Add(columnInfo.Name, Guid.NewGuid());
-                        break;
+                    switch (columnInfo.DataType)
+                    {
+                        case DataTypes.Integer:
+                            properties.Add(columnInfo.Name, random.NextInt(int.MinValue, int.MaxValue));
+                            break;
+                        case DataTypes.String:
+                            properties.Add(columnInfo.Name, random.NextString(columnInfo.Size ?? 500));
+                            break;
+                        case DataTypes.Decimal:
+                            properties.Add(columnInfo.Name, random.NextDecimal(-12, 12));
+                            break;
+                        case DataTypes.Boolean:
+                            properties.Add(columnInfo.Name, random.NextBool());
+                            break;
+                        case DataTypes.DateTime:
+                            properties.Add(columnInfo.Name, random.NextDateTime(DateTime.MinValue, DateTime.Today));
+                            break;
+                        case DataTypes.Guid:
+                            properties.Add(columnInfo.Name, Guid.NewGuid());
+                            break;
+                        default:
+                            break;
+                    }
                 }
+
+                dynamicData.Add(properties.ToDynamic());
             }
 
-            dynamicData.Add(properties.ToDynamic());
-        }
+            return dynamicData;
+        });
+    }
 
-        return Task.FromResult(dynamicData);
+    private async Task<IResult> GenerateCsvFile(IEnumerable<dynamic> data)
+    {
+        using var memoryStream = new MemoryStream();
+        await using var writer = new StreamWriter(memoryStream);
+        await using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+
+        await csv.WriteRecordsAsync(data);
+
+        return Results.File(memoryStream.ToArray(), contentType: "text/csv");
     }
 }
