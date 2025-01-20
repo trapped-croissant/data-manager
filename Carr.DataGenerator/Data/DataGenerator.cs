@@ -89,6 +89,8 @@ public class DataGenerator : IDataGenerator
 
     private Task<List<dynamic>> GenerateDynamicData(List<ColumnInfo> columns, int rows)
     {
+        Console.WriteLine($"Processing {rows} rows...");
+
         return Task.Run(() =>
         {
             var dynamicData = new List<dynamic>();
@@ -133,12 +135,37 @@ public class DataGenerator : IDataGenerator
 
     private async Task<IResult> GenerateCsvFile(IEnumerable<dynamic> data)
     {
-        using var memoryStream = new MemoryStream();
-        await using var writer = new StreamWriter(memoryStream);
-        await using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+        //TODO :  run delete files async
+        var currentDirectory = Directory.GetCurrentDirectory();
+        var folderPath = Path.Combine(currentDirectory, "generated_files");
+        Directory.CreateDirectory(folderPath);
+        DeleteOldFiles(folderPath);
+        var filePath = Path.Combine(folderPath, $"data_{DateTime.Now:yyyyMMddhhmmss}.csv");
+        try
+        {
+            using var memoryStream = new MemoryStream();
+            await using var writer = new StreamWriter(filePath);
+            await using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
 
-        await csv.WriteRecordsAsync(data);
+            await csv.WriteRecordsAsync(data);
 
-        return Results.File(memoryStream.ToArray(), contentType: "text/csv");
+            return Results.File(filePath, contentType: "text/csv");
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(ex.Message);
+        }
+    }
+
+    private void DeleteOldFiles(string path)
+    {
+        var files = Directory.GetFiles(path);
+
+        foreach (var file in files)
+        {
+            var fi = new FileInfo(file);
+            if (fi.LastAccessTime < DateTime.Now.AddMinutes(-5))
+                fi.Delete();
+        }
     }
 }
