@@ -1,0 +1,101 @@
+﻿{
+  "$schema": "https://json.schemastore.org/aspire-8.0.json",
+  "resources": {
+    "StateStoreUser": {
+      "type": "parameter.v0",
+      "value": "{StateStoreUser.inputs.value}",
+      "inputs": {
+        "value": {
+          "type": "string",
+          "secret": true
+        }
+      }
+    },
+    "StateStorePassword": {
+      "type": "parameter.v0",
+      "value": "{StateStorePassword.inputs.value}",
+      "inputs": {
+        "value": {
+          "type": "string",
+          "secret": true
+        }
+      }
+    },
+    "postgres": {
+      "type": "container.v0",
+      "connectionString": "Host={postgres.bindings.tcp.host};Port={postgres.bindings.tcp.port};Username={StateStoreUser.value};Password={StateStorePassword.value}",
+      "image": "docker.io/library/postgres:17.0",
+      "env": {
+        "POSTGRES_HOST_AUTH_METHOD": "scram-sha-256",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256 --auth-local=scram-sha-256",
+        "POSTGRES_USER": "{StateStoreUser.value}",
+        "POSTGRES_PASSWORD": "{StateStorePassword.value}"
+      },
+      "bindings": {
+        "tcp": {
+          "scheme": "tcp",
+          "protocol": "tcp",
+          "transport": "tcp",
+          "targetPort": 5432
+        }
+      }
+    },
+    "redis": {
+      "type": "container.v0",
+      "connectionString": "{redis.bindings.tcp.host}:{redis.bindings.tcp.port}",
+      "image": "docker.io/library/redis:7.4",
+      "bindings": {
+        "tcp": {
+          "scheme": "tcp",
+          "protocol": "tcp",
+          "transport": "tcp",
+          "targetPort": 6379
+        }
+      }
+    },
+    "carr-data-generator": {
+      "type": "project.v0",
+      "path": "Carr.DataGenerator/Carr.DataGenerator.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{carr-data-generator.bindings.http.targetPort}",
+        "ConnectionStrings__redis": "{redis.connectionString}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "react": {
+      "type": "dockerfile.v0",
+      "path": "data-manager-front-end/Dockerfile",
+      "context": "data-manager-front-end",
+      "env": {
+        "NODE_ENV": "development",
+        "services__carr-data-generator__http__0": "{carr-data-generator.bindings.http.url}",
+        "services__carr-data-generator__https__0": "{carr-data-generator.bindings.https.url}",
+        "BROWSER": "none"
+      },
+      "bindings": {
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 3000,
+          "external": true
+        }
+      }
+    }
+  }
+}

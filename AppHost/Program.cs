@@ -17,4 +17,12 @@ var dataGenerator = builder.AddProject<Projects.Carr_DataGenerator>("carr-data-g
     .WaitFor(redis)
     .WithReference(redis);
 
+builder.AddNpmApp("react", "../data-manager-front-end")
+    .WithReference(dataGenerator)
+    .WaitFor(dataGenerator)
+    .WithEnvironment("BROWSER", "none") // Disable opening browser on npm start
+    .WithHttpsEndpoint(targetPort: 4001, port: 3000, name: "react-front-end")
+    .WithExternalHttpEndpoints()
+    .PublishAsDockerFile();
+
 builder.Build().Run();

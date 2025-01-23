@@ -6,18 +6,16 @@ public static class DictionaryExtensions
 {
     public static dynamic ToDynamic(this IDictionary<string, object> dictionary)
     {
-        var dynamicList = new List<dynamic>();
-        
-        var eo = new ExpandoObject();
-        var eoColl = (ICollection<KeyValuePair<string, object>>)eo!;
+        var expandoObject = new ExpandoObject();
+        ICollection<KeyValuePair<string, object>> expandoObjectCollection = expandoObject!;
 
         foreach (var item in dictionary)
         {
-            eoColl.Add(item);
+            expandoObjectCollection.Add(item);
         }
 
-        dynamic eoDynamic = eo;
+        dynamic dynamicObject = expandoObject;
 
-        return eoDynamic;
+        return dynamicObject;
     }
 }

@@ -1,9 +1,9 @@
-using System.Globalization;
 using Carr.DataGenerator.Data;
-using CsvHelper;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors();
 
 builder.Services.AddOpenApi();
 
@@ -19,7 +19,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapGet("/api/v1/generatedata",
-        async (IDataGenerator dataGenerator, [FromQuery] int columns, [FromQuery] int records) => await dataGenerator.GenerateDataAsync(columns, records))
+        async (IDataGenerator dataGenerator, [FromQuery] int columns, [FromQuery] int records) =>
+        await dataGenerator.GenerateDataAsync(columns, records))
     .WithName("GetGeneratedData");
+
+app.UseCors(corsBuilder => corsBuilder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.Run();
