@@ -1,52 +1,29 @@
-import logo from './logo.svg';
 import './App.css';
+import {FaFileImport, FaHome} from 'react-icons/fa';
+import {Sidebar, SidebarItem} from "./components/Sidebar";
+import {FaWandMagicSparkles} from "react-icons/fa6";
+import {Route, Routes, useMatch, useResolvedPath} from "react-router-dom"
+import {GenerateRandomData} from "./pages/GenerateRandomData";
+import {ImportData} from "./pages/ImportData";
+import {Home} from "./pages/Home";
 
-function App() {
+export default function App() {
     return (
-        <div className="App">
-            <header className="App-header">
-                <img src={logo} className="App-logo" alt="logo"/>
-                <p>
-                    Edit <code>src/App.js</code> and save to reload.
-                </p>
-                <a
-                    className="App-link"
-                    href="https://reactjs.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Learn React!
-                </a>
+        <main className="flex">
+            <Sidebar>
+                <SidebarItem icon={<FaHome size={20}/>} text="Home" route=""/>
+                <SidebarItem icon={<FaWandMagicSparkles size={20}/>} text="Generate Data" route="generate"/>
+                <SidebarItem icon={<FaFileImport size={20}/>} text="Import File" route="import"/>
+            </Sidebar>
 
-                <button onClick={handleClick}>Click for file</button>
-            </header>
-        </div>
-    );
+            <Routes>
+                <Route path="/" element={<Home/>}/>
+                <Route path="/generate" element={<GenerateRandomData/>}/>
+                <Route path="/import" element={<ImportData/>}/>
+            </Routes>
+        </main>
+    )
+        ;
 }
 
-const handleClick = async () => {
-    await fetch('https://localhost:7084/api/v1/generatedata?columns=5&records=5000')
-        .then((response) => response.blob())
-        .then((blob) => {
-            const url = window.URL.createObjectURL(blob);
 
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute(
-                'download',
-                `download.csv`,
-            );
-
-            // Append to html link element page
-            document.body.appendChild(link);
-
-            // Start download
-            link.click();
-
-            // Clean up and remove the link
-            link.parentNode.removeChild(link);
-        })
-        .catch(error => console.error(error));
-}
-
-export default App;
