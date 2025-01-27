@@ -19,9 +19,15 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapGet("/api/v1/generatedata",
-        async (IDataGenerator dataGenerator, [FromQuery] int columns, [FromQuery] int records) =>
-        await dataGenerator.GenerateDataAsync(columns, records))
-    .WithName("GetGeneratedData");
+    async (IDataGenerator dataGenerator, [FromQuery] int columns, [FromQuery] int records) =>
+        {
+            if (columns == 0 || records == 0)
+            {
+                throw new Exception("Columns and rows are required.");
+            }
+            return await dataGenerator.GenerateDataAsync(columns, records);
+        })
+        .WithName("GetGeneratedData");
 
 app.UseCors(corsBuilder => corsBuilder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 

@@ -26,15 +26,11 @@ public class DataGenerator : IDataGenerator
 
         for (var i = 0; i < processors; i++)
         {
-            if (remainingRows < countPerProcessor)
-            {
-                dataTasks.Add(GenerateDynamicData(columnInfoList, remainingRows));
-            }
-            else
-            {
-                dataTasks.Add(GenerateDynamicData(columnInfoList, countPerProcessor));
-            }
+            var rowCount = remainingRows < countPerProcessor ? remainingRows : countPerProcessor;
 
+            if (rowCount <= 0) continue;
+            
+            dataTasks.Add(GenerateDynamicData(columnInfoList, rowCount));
             remainingRows -= countPerProcessor;
         }
 
@@ -89,7 +85,7 @@ public class DataGenerator : IDataGenerator
 
     private Task<List<dynamic>> GenerateDynamicData(List<ColumnInfo> columns, int rows)
     {
-        Console.WriteLine($"Processing {rows} rows...");
+        var stopwatch = Stopwatch.StartNew();
 
         return Task.Run(() =>
         {
@@ -129,6 +125,8 @@ public class DataGenerator : IDataGenerator
                 dynamicData.Add(properties.ToDynamic());
             }
 
+            stopwatch.Stop();
+            Console.WriteLine($"Generated {rows} rows in {stopwatch.ElapsedMilliseconds} ms.");
             return dynamicData;
         });
     }
